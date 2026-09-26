@@ -1,12 +1,35 @@
 # MDE by SMN × MiniMax H3 Android App
 
-This is the zero-budget Android client for the MiniMax H3 Colab gateway.
+This Android client opens the public MiniMax H3 Hugging Face Space directly.
 
-1. Start `colab/MDE_MiniMax_H3_Gateway.ipynb` in Google Colab.
-2. Copy the `gradio.live` URL printed by the notebook.
-3. Open the APK and paste the URL.
-4. Generate through the wrapped Hugging Face MiniMax H3 Space.
+## Architecture
 
-The gateway has a configurable daily usage limit and resets at midnight IST.
+```
+Android app
+    ↓
+Hugging Face MiniMax H3 Space
+    ↓
+Generated video + soundtrack
+    ↓
+Android app
+```
 
-The T4 is not used to load MiniMax H3 itself because the current unquantized H3 deployment requires tens of GiB of model memory and is split across two Spaces.
+There is **no Google Colab T4, gateway, proxy, IP rotation, or intermediate server** in this version.
+
+The H3 Space itself is a large split ZeroGPU deployment: the generator and conditioner remain on Hugging Face. The Android app does not download or run the H3 model locally.
+
+## Use
+
+1. Install the APK.
+2. The official Space URL is prefilled.
+3. Tap **Open MiniMax H3**.
+4. Use the H3 interface normally.
+5. Select/upload keyframes if needed, enter the prompt, configure generation options, and generate.
+
+The app uses an Android WebView so the Space's current Gradio interface remains usable without us having to duplicate every H3 control in native Android code.
+
+## Important
+
+Hugging Face controls the Space's actual ZeroGPU capacity and quota. The app must not claim an exact official remaining HF quota unless Hugging Face exposes that information to the client.
+
+Reference Space: https://huggingface.co/spaces/observantdistressed/minimax-h3
