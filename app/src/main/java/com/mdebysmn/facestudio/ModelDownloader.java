@@ -2,6 +2,7 @@ package com.mdebysmn.facestudio;
 
 import android.content.Context;
 import android.util.Log;
+import android.content.res.AssetManager;
 
 import java.io.BufferedInputStream;
 import java.io.File;
@@ -55,36 +56,55 @@ public class ModelDownloader {
      */
     public File getModelFile(String modelName) throws Exception {
         File modelFile = new File(context.getFilesDir(), modelName);
-        
+
+        // Prefer APK-bundled models so the installed app can operate fully offline.
+        if (!modelFile.exists() || modelFile.length() < getMinExpectedSize(modelName)) {
+            if (copyBundledAssetIfPresent(modelName, modelFile)) {
+                Log.d(TAG, modelName + " loaded from bundled APK asset");
+                return modelFile;
+            }
+        }
+
         if (modelFile.exists() && modelFile.length() > 0) {
             long minExpectedSize = getMinExpectedSize(modelName);
             if (modelFile.length() >= minExpectedSize) {
-                Log.d(TAG, modelName + " already exists in cache (" + (modelFile.length() / (1024 * 1024)) + " MB)");
                 return modelFile;
-            } else {
-                Log.w(TAG, modelName + " exists but incomplete (" + modelFile.length() + " bytes), resuming download...");
             }
         }
-        
+
         List<String> urls = getUrlsForModel(modelName);
         if (urls == null || urls.isEmpty()) {
             throw new Exception("Unknown model: " + modelName);
         }
-        
+
         Exception lastException = null;
         for (String url : urls) {
             try {
-                Log.d(TAG, "Downloading " + modelName + " from " + url);
                 downloadModelWithRetry(url, modelFile, modelName);
                 return modelFile;
             } catch (Exception e) {
-                Log.e(TAG, "Failed downloading from " + url + ": " + e.getMessage());
                 lastException = e;
             }
         }
-        
-        throw new Exception("Failed to download " + modelName + " after trying all mirrors: " 
-            + (lastException != null ? lastException.getMessage() : "Unknown error"));
+
+        throw new Exception("Failed to download " + modelName + ": " +
+            (lastException != null ? lastException.getMessage() : "Unknown error"));
+    }
+
+    private boolean copyBundledAssetIfPresent(String modelName, File outputFile) {
+        String assetPath = "models/" + modelName;
+        try (InputStream input = context.getAssets().open(assetPath, AssetManager.ACCESS_STREAMING);
+             FileOutputStream output = new FileOutputStream(outputFile, false)) {
+            byte[] buffer = new byte[1024 * 1024];
+            int count;
+            while ((count = input.read(buffer)) != -1) {
+                output.write(buffer, 0, count);
+            }
+            output.flush();
+            return outputFile.exists() && outputFile.length() >= getMinExpectedSize(modelName);
+        } catch (Exception ignored) {
+            return false;
+        }
     }
 
     private long getMinExpectedSize(String modelName) {
