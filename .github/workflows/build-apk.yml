@@ -14,83 +14,47 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-
       - name: Prepare Android SDK
         run: |
           echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
           echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
-
       - name: Download InSwapper and supporting models
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p app/src/main/assets/models
-          curl -L --fail --retry 5 --retry-all-errors --retry-delay 5             -o app/src/main/assets/models/inswapper_128.onnx             https://huggingface.co/tsi-org/face-swapper/resolve/main/inswapper_128.onnx
-          curl -L --fail --retry 5 --retry-all-errors --retry-delay 5             -o app/src/main/assets/models/det_10g.onnx             https://huggingface.co/leonelhs/insightface/resolve/main/det_10g.onnx
-          curl -L --fail --retry 5 --retry-all-errors --retry-delay 5             -o app/src/main/assets/models/w600k_r50.onnx             https://huggingface.co/leonelhs/insightface/resolve/main/w600k_r50.onnx
-          echo "InSwapper SHA-256:"
+          curl -L --fail --retry 5 --retry-all-errors --retry-delay 5 -o app/src/main/assets/models/inswapper_128.onnx https://huggingface.co/tsi-org/face-swapper/resolve/main/inswapper_128.onnx
+          curl -L --fail --retry 5 --retry-all-errors --retry-delay 5 -o app/src/main/assets/models/det_10g.onnx https://huggingface.co/leonelhs/insightface/resolve/main/det_10g.onnx
+          curl -L --fail --retry 5 --retry-all-errors --retry-delay 5 -o app/src/main/assets/models/w600k_r50.onnx https://huggingface.co/leonelhs/insightface/resolve/main/w600k_r50.onnx
           echo "e4a3f08c753cb72d04e10aa0f7dbe3deebbf39567d4ead6dce08e98aa49e16af  app/src/main/assets/models/inswapper_128.onnx" | sha256sum -c -
-          ls -lh app/src/main/assets/models
-
       - name: Check Gradle
         run: gradle --version
-
       - name: Build debug APK
         run: gradle assembleDebug --no-daemon
-
       - name: List generated APKs
         run: |
           find app/build/outputs/apk -type f -name "*.apk" -print -exec ls -lh {} \;
-
-      - name: Upload ARM64 APK as direct artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: MDE-by-SMN-arm64-apk
-          path: app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
-          if-no-files-found: error
-          retention-days: 14
-          compression-level: 0
-
-      - name: Split ARM64 APK for ChatGPT transfer
+      - name: Split ARM64 APK into transfer-safe chunks
         shell: bash
         run: |
           set -euo pipefail
           apk="app/build/outputs/apk/debug/app-arm64-v8a-debug.apk"
           rm -rf transfer
           mkdir -p transfer
-          split -b 430M -d -a 2 "$apk" transfer/MDE-by-SMN-arm64.part-
+          split -b 200M -d -a 2 "$apk" transfer/MDE-by-SMN-arm64.part-
           sha256sum "$apk" > transfer/MDE-by-SMN-arm64.apk.sha256
           ls -lh transfer
-
-      - name: Upload ARM64 APK part 1
+      - name: Upload transfer chunks
         uses: actions/upload-artifact@v4
         with:
-          name: MDE-by-SMN-arm64-part-01
-          path: transfer/MDE-by-SMN-arm64.part-00
+          name: MDE-by-SMN-arm64-transfer
+          path: transfer/*
           if-no-files-found: error
           retention-days: 14
           compression-level: 0
-
-      - name: Upload ARM64 APK part 2
-        uses: actions/upload-artifact@v4
-        with:
-          name: MDE-by-SMN-arm64-part-02
-          path: transfer/MDE-by-SMN-arm64.part-01
-          if-no-files-found: error
-          retention-days: 14
-          compression-level: 0
-
-      - name: Upload ARM64 APK checksum
-        uses: actions/upload-artifact@v4
-        with:
-          name: MDE-by-SMN-arm64-checksum
-          path: transfer/MDE-by-SMN-arm64.apk.sha256
-          if-no-files-found: error
-          retention-days: 14
