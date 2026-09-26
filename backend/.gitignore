@@ -1,0 +1,7 @@
+*.onnx
+*.pt
+*.pth
+*.safetensors
+models/
+.env
+__pycache__/
