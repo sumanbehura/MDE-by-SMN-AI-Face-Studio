@@ -32,15 +32,9 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p app/src/main/assets/models
-          curl -L --fail --retry 5 --retry-all-errors --retry-delay 5 \
-            -o app/src/main/assets/models/inswapper_128.onnx \
-            https://huggingface.co/tsi-org/face-swapper/resolve/main/inswapper_128.onnx
-          curl -L --fail --retry 5 --retry-all-errors --retry-delay 5 \
-            -o app/src/main/assets/models/det_10g.onnx \
-            https://huggingface.co/leonelhs/insightface/resolve/main/det_10g.onnx
-          curl -L --fail --retry 5 --retry-all-errors --retry-delay 5 \
-            -o app/src/main/assets/models/w600k_r50.onnx \
-            https://huggingface.co/leonelhs/insightface/resolve/main/w600k_r50.onnx
+          curl -L --fail --retry 5 --retry-all-errors --retry-delay 5             -o app/src/main/assets/models/inswapper_128.onnx             https://huggingface.co/tsi-org/face-swapper/resolve/main/inswapper_128.onnx
+          curl -L --fail --retry 5 --retry-all-errors --retry-delay 5             -o app/src/main/assets/models/det_10g.onnx             https://huggingface.co/leonelhs/insightface/resolve/main/det_10g.onnx
+          curl -L --fail --retry 5 --retry-all-errors --retry-delay 5             -o app/src/main/assets/models/w600k_r50.onnx             https://huggingface.co/leonelhs/insightface/resolve/main/w600k_r50.onnx
           echo "InSwapper SHA-256:"
           echo "e4a3f08c753cb72d04e10aa0f7dbe3deebbf39567d4ead6dce08e98aa49e16af  app/src/main/assets/models/inswapper_128.onnx" | sha256sum -c -
           ls -lh app/src/main/assets/models
@@ -55,10 +49,48 @@ jobs:
         run: |
           find app/build/outputs/apk -type f -name "*.apk" -print -exec ls -lh {} \;
 
-      - name: Upload generated APKs
+      - name: Upload ARM64 APK as direct artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MDE-by-SMN-debug-apks
-          path: app/build/outputs/apk/debug/*.apk
+          name: MDE-by-SMN-arm64-apk
+          path: app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+
+      - name: Split ARM64 APK for ChatGPT transfer
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="app/build/outputs/apk/debug/app-arm64-v8a-debug.apk"
+          rm -rf transfer
+          mkdir -p transfer
+          split -b 430M -d -a 2 "$apk" transfer/MDE-by-SMN-arm64.part-
+          sha256sum "$apk" > transfer/MDE-by-SMN-arm64.apk.sha256
+          ls -lh transfer
+
+      - name: Upload ARM64 APK part 1
+        uses: actions/upload-artifact@v4
+        with:
+          name: MDE-by-SMN-arm64-part-01
+          path: transfer/MDE-by-SMN-arm64.part-00
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+
+      - name: Upload ARM64 APK part 2
+        uses: actions/upload-artifact@v4
+        with:
+          name: MDE-by-SMN-arm64-part-02
+          path: transfer/MDE-by-SMN-arm64.part-01
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+
+      - name: Upload ARM64 APK checksum
+        uses: actions/upload-artifact@v4
+        with:
+          name: MDE-by-SMN-arm64-checksum
+          path: transfer/MDE-by-SMN-arm64.apk.sha256
           if-no-files-found: error
           retention-days: 14
