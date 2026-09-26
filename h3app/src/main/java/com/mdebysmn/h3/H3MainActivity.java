@@ -5,12 +5,18 @@ import android.os.Bundle;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.net.Uri;
 import android.view.Gravity;
+import android.webkit.ValueCallback;
+import android.webkit.WebChromeClient;
+import android.webkit.WebResourceError;
+import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.*;
 import android.graphics.drawable.GradientDrawable;
+import android.content.Intent;
 
 public class H3MainActivity extends Activity {
     static final String PREFS = "h3";
@@ -19,6 +25,8 @@ public class H3MainActivity extends Activity {
     LinearLayout root;
     SharedPreferences prefs;
     WebView web;
+    TextView status;
+    ValueCallback<Uri[]> uploadCallback;
 
     int dp(float v) { return (int)(v * getResources().getDisplayMetrics().density + .5f); }
 
@@ -46,6 +54,7 @@ public class H3MainActivity extends Activity {
     }
 
     void showConnect() {
+        web = null;
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(dp(20), dp(22), dp(20), dp(24));
@@ -59,9 +68,9 @@ public class H3MainActivity extends Activity {
         root.addView(sub);
 
         TextView info = text(
-            "\nThis app opens the MiniMax H3 Hugging Face Space directly. " +
-            "There is no Colab server, T4 gateway, proxy, or intermediate backend.\n\n" +
-            "Hugging Face performs the actual H3 generation. The Android app is the client interface.",
+            "\nDirect connection to the official H3 Space.\n\n" +
+            "No Colab T4, gateway, proxy, or intermediate server. " +
+            "Hugging Face performs the actual H3 generation.",
             14, Color.rgb(190,190,205));
         root.addView(info);
 
@@ -91,17 +100,24 @@ public class H3MainActivity extends Activity {
                 return;
             }
             prefs.edit().putString(SPACE_URL, value).apply();
-            showWeb(value);
+            showWeb(normalizeSpaceUrl(value));
         });
         root.addView(connect, new LinearLayout.LayoutParams(-1, dp(56)));
 
         TextView note = text(
-            "\nThe current H3 Space is a large split deployment running on Hugging Face ZeroGPU. " +
-            "Its generator and conditioner remain on Hugging Face; this app does not attempt to download or run those models locally.",
+            "\nUpload support is enabled for H3 image/keyframe inputs. " +
+            "The app also shows connection status so you can tell when the Space is loaded.",
             12, Color.rgb(145,145,160));
         root.addView(note);
 
         setContentView(root);
+    }
+
+    String normalizeSpaceUrl(String value) {
+        if (value.startsWith("https://huggingface.co/spaces/observantdistressed/minimax-h3")) {
+            return DEFAULT_SPACE;
+        }
+        return value.endsWith("/") ? value : value + "/";
     }
 
     void showWeb(String url) {
@@ -111,43 +127,97 @@ public class H3MainActivity extends Activity {
 
         LinearLayout bar = new LinearLayout(this);
         bar.setGravity(Gravity.CENTER_VERTICAL);
-        bar.setPadding(dp(12), dp(6), dp(8), dp(6));
+        bar.setPadding(dp(12), dp(4), dp(8), dp(4));
         bar.setBackgroundColor(Color.rgb(18,18,25));
 
+        LinearLayout labels = new LinearLayout(this);
+        labels.setOrientation(LinearLayout.VERTICAL);
+        labels.setGravity(Gravity.CENTER_VERTICAL);
         TextView title = text("MDE × MiniMax H3", 15, Color.WHITE);
         title.setTypeface(null, Typeface.BOLD);
-        bar.addView(title, new LinearLayout.LayoutParams(0, dp(48), 1));
+        labels.addView(title);
+        status = text("Connecting to Hugging Face…", 11, Color.rgb(170,170,185));
+        labels.addView(status);
+        bar.addView(labels, new LinearLayout.LayoutParams(0, dp(52), 1));
 
-        Button settings = new Button(this);
-        settings.setText("Home");
-        settings.setAllCaps(false);
-        settings.setTextColor(Color.WHITE);
-        settings.setBackground(bg(Color.rgb(35,35,46), 12));
-        settings.setOnClickListener(v -> showConnect());
-        bar.addView(settings, new LinearLayout.LayoutParams(dp(90), dp(44)));
-
+        Button home = new Button(this);
+        home.setText("Home");
+        home.setAllCaps(false);
+        home.setTextColor(Color.WHITE);
+        home.setBackground(bg(Color.rgb(35,35,46), 12));
+        home.setOnClickListener(v -> showConnect());
+        bar.addView(home, new LinearLayout.LayoutParams(dp(90), dp(44)));
         root.addView(bar);
 
         web = new WebView(this);
         web.setBackgroundColor(Color.rgb(8,8,12));
-        web.setWebViewClient(new WebViewClient());
+        web.setWebViewClient(new WebViewClient() {
+            @Override public void onPageFinished(WebView view, String loadedUrl) {
+                if (status != null) status.setText("Hugging Face Space loaded • Ready");
+            }
+
+            @Override public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+                if (request.isForMainFrame() && status != null) {
+                    status.setText("Connection error • Check internet/Hugging Face status");
+                }
+            }
+        });
+
+        web.setWebChromeClient(new WebChromeClient() {
+            @Override public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
+                if (uploadCallback != null) uploadCallback.onReceiveValue(null);
+                uploadCallback = callback;
+                try {
+                    startActivityForResult(params.createIntent(), 1001);
+                    return true;
+                } catch (Exception e) {
+                    uploadCallback = null;
+                    callback.onReceiveValue(null);
+                    Toast.makeText(H3MainActivity.this, "Unable to open the file picker.", Toast.LENGTH_SHORT).show();
+                    return false;
+                }
+            }
+
+            @Override public void onProgressChanged(WebView view, int newProgress) {
+                if (status != null && newProgress < 100) status.setText("Loading H3 Space… " + newProgress + "%");
+            }
+        });
+
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
         s.setAllowFileAccess(true);
         s.setAllowContentAccess(true);
         s.setMediaPlaybackRequiresUserGesture(false);
+        s.setBuiltInZoomControls(false);
+        s.setDisplayZoomControls(false);
         web.setOverScrollMode(WebView.OVER_SCROLL_NEVER);
         web.loadUrl(url);
+
         root.addView(web, new LinearLayout.LayoutParams(-1, 0, 1));
         setContentView(root);
     }
 
-    @Override public void onBackPressed() {
-        if (web != null && web.canGoBack()) {
-            web.goBack();
-        } else {
-            super.onBackPressed();
+    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == 1001 && uploadCallback != null) {
+            Uri[] results = null;
+            if (resultCode == RESULT_OK && data != null) {
+                if (data.getClipData() != null) {
+                    int count = data.getClipData().getItemCount();
+                    results = new Uri[count];
+                    for (int i = 0; i < count; i++) results[i] = data.getClipData().getItemAt(i).getUri();
+                } else if (data.getData() != null) {
+                    results = new Uri[]{data.getData()};
+                }
+            }
+            uploadCallback.onReceiveValue(results);
+            uploadCallback = null;
         }
+    }
+
+    @Override public void onBackPressed() {
+        if (web != null && web.canGoBack()) web.goBack();
+        else super.onBackPressed();
     }
 }
