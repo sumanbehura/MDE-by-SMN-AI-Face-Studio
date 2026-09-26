@@ -75,7 +75,7 @@ public class MainActivity extends Activity {
         Button run=button("Generate image",true);run.setTextSize(16);run.setMinHeight(dp(56));run.setOnClickListener(v->generate());content.addView(run);
         status=text("Preparing on-device AI…",12,MUTED);status.setGravity(Gravity.CENTER);status.setPadding(dp(12),dp(14),dp(12),dp(4));content.addView(status);
 
-        TextView license=text("Use only images you have permission to edit. The face-swap models are downloaded on first setup and have separate licensing terms.",11,MUTED);license.setPadding(dp(4),dp(12),dp(4),0);content.addView(license);
+        TextView license=text("Use only images you have permission to edit. The face-swap models are bundled for offline processing and have separate licensing terms.",11,MUTED);license.setPadding(dp(4),dp(12),dp(4),0);content.addView(license);
         setContentView(root);
     }
 
@@ -88,7 +88,7 @@ public class MainActivity extends Activity {
     void initLocalEngine(){
         pool.submit(()->{
             try{
-                runOnUiThread(()->status.setText("Downloading/loading AI models… (first setup can be ~800 MB)"));
+                runOnUiThread(()->status.setText("Loading bundled AI models…"));
                 ModelDownloader d=new ModelDownloader(this);
                 d.setCallback(new ModelDownloader.DownloadCallback(){public void onProgress(String n,int p){runOnUiThread(()->status.setText("Setting up "+n+" • "+p+"%"));}public void onComplete(String n){}public void onError(String n,String e){}});
                 FaceDetector det=new FaceDetector(this);det.initialize();
