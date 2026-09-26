@@ -51,7 +51,14 @@ jobs:
       - name: Build debug APK
         run: gradle assembleDebug --no-daemon
 
-      - uses: actions/upload-artifact@v4
+      - name: List generated APKs
+        run: |
+          find app/build/outputs/apk -type f -name "*.apk" -print -exec ls -lh {} \;
+
+      - name: Upload generated APKs
+        uses: actions/upload-artifact@v4
         with:
-          name: MDE-by-SMN-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: MDE-by-SMN-debug-apks
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
