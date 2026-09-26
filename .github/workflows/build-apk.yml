@@ -50,11 +50,43 @@ jobs:
           split -b 200M -d -a 2 "$apk" transfer/MDE-by-SMN-arm64.part-
           sha256sum "$apk" > transfer/MDE-by-SMN-arm64.apk.sha256
           ls -lh transfer
-      - name: Upload transfer chunks
+      - name: Upload part 1
         uses: actions/upload-artifact@v4
         with:
-          name: MDE-by-SMN-arm64-transfer
-          path: transfer/*
+          name: MDE-by-SMN-arm64-part-01
+          path: transfer/MDE-by-SMN-arm64.part-00
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+      - name: Upload part 2
+        uses: actions/upload-artifact@v4
+        with:
+          name: MDE-by-SMN-arm64-part-02
+          path: transfer/MDE-by-SMN-arm64.part-01
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+      - name: Upload part 3
+        uses: actions/upload-artifact@v4
+        with:
+          name: MDE-by-SMN-arm64-part-03
+          path: transfer/MDE-by-SMN-arm64.part-02
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+      - name: Upload part 4
+        uses: actions/upload-artifact@v4
+        with:
+          name: MDE-by-SMN-arm64-part-04
+          path: transfer/MDE-by-SMN-arm64.part-03
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+      - name: Upload checksum
+        uses: actions/upload-artifact@v4
+        with:
+          name: MDE-by-SMN-arm64-checksum
+          path: transfer/MDE-by-SMN-arm64.apk.sha256
           if-no-files-found: error
           retention-days: 14
           compression-level: 0
