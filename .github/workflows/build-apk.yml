@@ -8,6 +8,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     env:
       ANDROID_HOME: /usr/local/lib/android/sdk
 
@@ -25,6 +26,24 @@ jobs:
           echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Download InSwapper and supporting models
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p app/src/main/assets/models
+          curl -L --fail --retry 5 --retry-all-errors --retry-delay 5 \
+            -o app/src/main/assets/models/inswapper_128.onnx \
+            https://huggingface.co/tsi-org/face-swapper/resolve/main/inswapper_128.onnx
+          curl -L --fail --retry 5 --retry-all-errors --retry-delay 5 \
+            -o app/src/main/assets/models/det_10g.onnx \
+            https://huggingface.co/leonelhs/insightface/resolve/main/det_10g.onnx
+          curl -L --fail --retry 5 --retry-all-errors --retry-delay 5 \
+            -o app/src/main/assets/models/w600k_r50.onnx \
+            https://huggingface.co/leonelhs/insightface/resolve/main/w600k_r50.onnx
+          echo "InSwapper SHA-256:"
+          echo "e4a3f08c753cb72d04e10aa0f7dbe3deebbf39567d4ead6dce08e98aa49e16af  app/src/main/assets/models/inswapper_128.onnx" | sha256sum -c -
+          ls -lh app/src/main/assets/models
 
       - name: Check Gradle
         run: gradle --version
