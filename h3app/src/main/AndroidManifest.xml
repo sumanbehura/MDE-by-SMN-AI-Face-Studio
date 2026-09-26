@@ -3,6 +3,8 @@
     <application
         android:theme="@style/H3Theme"
         android:label="MDE by SMN × MiniMax H3"
+        android:icon="@drawable/ic_launcher"
+        android:roundIcon="@drawable/ic_launcher"
         android:allowBackup="false"
         android:supportsRtl="true">
         <activity android:name=".H3MainActivity" android:screenOrientation="portrait" android:exported="true">
