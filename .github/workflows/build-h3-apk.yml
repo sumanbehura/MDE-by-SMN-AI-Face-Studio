@@ -25,6 +25,15 @@ jobs:
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
       - name: Build H3 APK
         run: gradle :h3app:assembleDebug --no-daemon
+      - name: Build MDE AI Assistant APK
+        run: gradle :assistantapp:assembleDebug --no-daemon
+      - name: Upload Assistant APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: MDE-AI-Assistant-debug-apk
+          path: assistantapp/build/outputs/apk/debug/assistantapp-debug.apk
+          if-no-files-found: error
+          retention-days: 14
       - name: Upload H3 APK
         uses: actions/upload-artifact@v4
         with:
